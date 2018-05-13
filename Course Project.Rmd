@@ -1,0 +1,164 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Federico Gonzalez"
+date: "13/05/2018"
+output: 
+    html_document:
+        theme: spacelab
+        highlight: tango
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 13px;
+  }
+h1.title {
+  font-size: 38px;
+}
+h1 { /* Header 1 */
+  font-size: 28px;
+}
+h2 { /* Header 2 */
+    font-size: 22px;
+}
+h3 { /* Header 3 */
+  font-size: 18px;
+  color: DarkBlue;
+}
+code.r{ /* Code block */
+    font-size: 12px;
+}
+pre { /* Code block - determines code spacing between lines */
+    font-size: 12px;
+}
+</style>
+
+
+```{r,, echo=FALSE, results='hide'}
+library(knitr)
+opts_chunk$set(message = F, error = F, warning = F, comment = NA, fig.align = 'center', dpi = 100, tidy = F, cache.path = '.cache/', fig.path = 'fig/')
+
+```
+
+#Background  
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions:  
+
++ Exactly according to the specification (Class A),  
++ Throwing the elbows to the front (Class B),  
++ Lifting the dumbbell only halfway (Class C),  
++ Lowering the dumbbell only halfway (Class D) and  
++ Throwing the hips to the front (Class E).
+
+
+Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes. Participants were supervised by an experienced weight lifter to make sure the execution complied to the manner they were supposed to simulate. The exercises were performed by six male participants aged between 20-28 years, with little weight lifting experience. We made sure that all participants could easily simulate the mistakes in a safe and controlled manner by using a relatively light dumbbell (1.25kg).
+
+##Document to submit  
+
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+#Analysis
+
+**Loading packages and dependencies**
+```{r Loading-dependencies, results='hide'}
+library(caret)
+library(randomForest)
+library(rpart)
+library(rattle)
+library(rpart.plot)
+```
+
+**Download of Training and Test sets**
+```{r dataset_download, eval=FALSE}
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv","Train.csv")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv","Test.csv")
+```
+
+```{r}
+training <- read.csv("Train.csv")
+testing <- read.csv("Test.csv")
+```
+
+**Delete columns with missing values on both datasets in order to have the same columns on each dataset**
+```{r}
+training <- training[,colSums(is.na(testing))==0]
+testing <- testing[,colSums(is.na(testing))==0]
+#Delete of columns 1-7 as they do not contain relevant information
+training <- training[,-c(1:7)]
+testing <- testing[,-c(1:7)]
+
+dim(training); dim(testing)
+```
+
+**Cross Validation in Training Dataset**
+Data Partition of training dataset into 70% trainingpart and 30% testingpart
+```{r}
+inTrain <- createDataPartition(y=training$classe, p=0.7, list=FALSE)
+trainingpart <- training[inTrain,]
+testingpart <- training[-inTrain,]
+
+```
+
+
+**Model 1 - Predicting with Desition Trees, method "rpart"**
+```{r}
+modFit <- train(classe ~ .,method="rpart", data=trainingpart)
+prediction1 <- predict(modFit,newdata=testingpart)
+confusionMatrix(prediction1, testingpart$classe)
+fancyRpartPlot(modFit$finalModel)
+```
+
+
+**Model 2 - Predicting with Desition Trees rpart method "class"**
+```{r}
+modFit2 <- rpart(classe ~ ., data=trainingpart, method="class")
+prediction2 <- predict(modFit2, testingpart, type = "class")
+confusionMatrix(prediction2, testingpart$classe)
+rpart.plot(modFit2, main="Classification Tree", extra=102, under=TRUE, faclen=0)
+```
+
+**Model 3 - Predicting with Random Forest**
+```{r}
+modFit3 <- randomForest(classe ~. , data=trainingpart, method="class")
+prediction3 <- predict(modFit3, testingpart, type="class")
+confusionMatrix(prediction3, testingpart$classe)
+
+```
+
+
+##Outcome
+Accuracy on random forest is far much better than classification trees (0.9942 vs model2- 0.7441 and model3- 0.4984).
+
+---
+
+#Prediction on the Test set using Random Forest model.
+```{r}
+prediction <- predict(modFit3,testing, type="class")
+
+prediction
+
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(prediction)
+```
+
+#References
+[1] Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human ’13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+[2] Krzysztof Gra??bczewski and Norbert Jankowski. Feature Selection with Decision Tree Criterion.
+
+#Version of packages used
+```{r}
+sessionInfo()
+```
+
+
